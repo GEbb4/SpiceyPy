@@ -54,6 +54,7 @@ Contents:
    exampleone
    cells
    exceptions
+   extra_features
    lessonindex
    documentation
 
@@ -64,4 +65,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

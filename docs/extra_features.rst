@@ -1,69 +1,60 @@
 Extra Features
 ==============
 
-July 2, 2021
-
 SpiceyPy was always intended to be a thin wrapper around the CSPICE routines, however
 as it is implemented in Python there are a small number of extra features to help
-make end-users' code more Pythonic.
+make end-users' code more Pythonic. One such feature is a context manager for
+loading and unloading kernels, which ensures that loaded kernels are always
+properly unloaded.
 
-Overview
---------
+For example, one common paradigm when using SpiceyPy is needing to catch errors
+in order to guarantee kernels get unloaded.
 
-These tasks teach basic substitutions and code idioms that can be included in code to
-make it easier to read in Python, and less error-prone.
+.. code:: python
 
-Lesson 1: Loading Kernels as Contexts
--------------------------------------
+    import spiceypy as spice
 
-Task Statement
-^^^^^^^^^^^^^^
-Write a program which loads kernels using a context manager. Then, load kernels using a
-function decorator.
+    utc = input("Enter a time in UTC: ")
 
-Learning Goals
-^^^^^^^^^^^^^^
-SpiceyPy includes a context manager which can load kernels and guarantees that they will
-be unloaded when they're finished with, which can also be used as a decorator.
+    spice.furnsh("win.tm")
+    try:
+        et = spice.str2et(utc)
+    finally:
+        spice.unload("win.tm")
 
-Code Solution
-^^^^^^^^^^^^^
+    print("UTC {0} corresponds to ET {1}".format(utc, et))
 
-::
+The try/finally construct is used because otherwise, if an error were raised by
+`str2et`, the `unload` would never be run.
 
-    import spiceypy
-    from spiceypy.context import SpiceKernel
+However, SpiceyPy includes a context manager, :py:class:`spiceypy.context.KernelPool` ,
+which loads the kernels and then guarantees that they will be unloaded even if
+an exception occurs inside it.
 
+.. code:: python
 
-    # This is an example of a function which uses the context manager SpiceKernel. It only
-    # loads the kernel within the "with" statement, then unloads it, and if an error happens
-    # in it all the kernels are unloaded properly. It's good practice to only keep the
-    # kernels loaded for as long as necessary.
-    def get_time_using_context_manager():
-        """Gets the user to input a time and converts it to an Ephemeris Time (ET)."""
+    import spiceypy as spice
+    from spicepy.context import KernelPool
 
-        # This could be calculated by some other routine.
-        utc = input("Enter a time in UTC: ")
+    utc = input("Enter a time in UTC: ")
+    with KernelPool("win.tm"):
+        et = spice.str2et(utc)
 
-        # Load the kernel, and only keep it loaded for as long as needed.
-        with SpiceKernel("win.tm"):
-            et = spiceypy.str2et(utc)
+    print("UTC {0} corresponds to ET {1}".format(utc, et))
 
-        # Now print the ET, although this could be any other operation.
-        print("UTC {0} corresponds to ET {1}".format(utc, et))
+This context manager can also be used to decorate a function, and will ensure
+that the necessary kernel files are loaded when that function executes and
+unloaded when it completes.
 
+.. code:: python
 
-    # Alternatively, the SpiceKernel can be used as a decorator for cases where the entire
-    # function needs to be executed with the kernel.
-    @SpiceKernel("win.tm")
-    def get_time_using_decorator(utc):
-        """Converts a given UTC string to Ephemeris Time (ET)."""
+    import spiceypy as spice
+    from spiceypy.context import KernelPool
 
-        # Do the conversion. Because of the @SpiceKernel decorator, no kernels need to be
-        # loaded or unloaded.
-        et = spiceypy.str2et(utc)
+    @KernelPool("win.tm")
+    def get_ephemeris_time(utc):
+        return spice.str2et(utc)
 
-        # Print the ET, could be any other operation. If the function ends with a return,
-        # the kernels are unloaded AFTER the return value is calculated (so you could
-        # have, for example, "return spiceypy.str2et(utc)".
-        print("UTC {0} corresponds to ET {1}".format(utc, et))
+    utc = input("Enter a time in UTC: ")
+    et = get_ephemeris_time(utc)
+    print("UTC {0} corresponds to ET {1}".format(utc, et))

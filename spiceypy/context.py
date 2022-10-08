@@ -9,6 +9,8 @@ from .spiceypy import furnsh, ktotal, unload
 
 LOGGER = logging.getLogger(__name__)
 
+KernelFile = Union[str, Path]
+
 
 @contextmanager
 def _change_dir(change: bool, target_dir: Path) -> Generator[None, None, None]:
@@ -24,15 +26,18 @@ def _change_dir(change: bool, target_dir: Path) -> Generator[None, None, None]:
             chdir(orig_dir)
 
 
-def _make_path(file_string: str) -> Path:
+def _make_path(file_path_or_string: Union[str, Path]) -> Path:
     """Convert a kernel filename string to a Path object and check it is valid."""
-    path = Path(file_string)
-    if not path.is_file():
-        raise FileNotFoundError(f"File {path.name} is not a valid file.")
+    if isinstance(file_path_or_string, Path):
+        path = file_path_or_string
+    else:
+        path = Path(file_path_or_string)
+        if not path.is_file():
+            raise FileNotFoundError(f"{file_path_or_string} is not a valid file.")
     return path
 
 
-class SpiceKernel(ContextDecorator):
+class KernelPool(ContextDecorator):
     """Context manager for loading and unloading SPICE kernels.
 
     Loads the kernel(s) given using `spiceypy.furnsh()` and unloads them using
@@ -45,7 +50,9 @@ class SpiceKernel(ContextDecorator):
     """
 
     def __init__(
-        self, kernel_files: Union[str, Iterable[str]], allow_change_dir=True
+        self,
+        kernel_files: Union[KernelFile, Iterable[KernelFile]],
+        allow_change_dir: bool = True,
     ) -> None:
         """Initialise the context and check all given files are valid."""
 
@@ -65,7 +72,7 @@ class SpiceKernel(ContextDecorator):
             with _change_dir(self.allow_change_dir, kernel.parent):
                 furnsh(str(kernel))
                 logging.info(
-                    f"Loaded {kernel.name}, {ktotal('ALL')} kernels now loaded."
+                    f"Loaded {kernel}, {ktotal('ALL')} kernels now loaded."
                 )
 
     def __exit__(self, exc: Any, exca: Any, excb: TracebackType) -> None:
@@ -73,5 +80,5 @@ class SpiceKernel(ContextDecorator):
             with _change_dir(self.allow_change_dir, kernel.parent):
                 unload(str(kernel))
                 logging.info(
-                    f"Unloaded {kernel.name}, {ktotal('ALL')} kernels still loaded"
+                    f"Unloaded {kernel}, {ktotal('ALL')} kernels still loaded"
                 )

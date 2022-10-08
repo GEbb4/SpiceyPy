@@ -27,7 +27,7 @@ from unittest.mock import patch
 import pytest
 
 import spiceypy as spice
-from spiceypy.context import SpiceKernel
+from spiceypy.context import KernelPool
 from spiceypy.tests.gettestkernels import (
     CoreKernels,
     cleanup_core_kernels,
@@ -65,41 +65,41 @@ def assert_loaded_kernels(num: int) -> None:
         (len(CoreKernels.standardKernelList), CoreKernels.standardKernelList),
     ],
 )
-def test_spicekernel_enter_exit(expected_num, arg_to_pass):
+def test_kernelpool_enter_exit(expected_num, arg_to_pass):
     """Test that a single kernel is correctly loaded and unloaded."""
     assert_loaded_kernels(0)
-    with SpiceKernel(arg_to_pass):
+    with KernelPool(arg_to_pass):
         assert_loaded_kernels(expected_num)
     assert_loaded_kernels(0)
 
 
-def test_spicekernel_enter_exit_invalid_list():
+def test_kernelpool_enter_exit_invalid_list():
     """Ensure that an error is raised if one of the kernels is invalid."""
     assert_loaded_kernels(0)
     with pytest.raises(FileNotFoundError):
         kernels = CoreKernels.standardKernelList + ["invalid/file.txt"]
-        with SpiceKernel(kernels):
+        with KernelPool(kernels):
             # If we get here, raise an error that isn't caught because the test has
             # failed.
             AssertionError("Expected error not raised")
 
 
-def test_spicekernel_exit_with_error():
+def test_kernelpool_exit_with_error():
     """Ensure that kernels are still properly unloaded on an error."""
     try:
         assert_loaded_kernels(0)
-        with SpiceKernel(CoreKernels.testMetaKernel):
+        with KernelPool(CoreKernels.testMetaKernel):
             assert_loaded_kernels(len(CoreKernels.standardKernelList) + 1)
             raise ManualException
     except ManualException:
         assert_loaded_kernels(0)
 
 
-def test_spicekernel_directory_change_user_transparent():
+def test_kernelpool_directory_change_user_transparent():
     """Test that the working directory is properly restored inside and after the
     context manager (ensuring user transparency)."""
     initial_dir = os.getcwd()
-    with SpiceKernel(CoreKernels.testMetaKernel):
+    with KernelPool(CoreKernels.testMetaKernel):
         assert initial_dir == os.getcwd()
 
         # Now change directory to ensure the exit maintains the change.
@@ -109,9 +109,9 @@ def test_spicekernel_directory_change_user_transparent():
 
 
 @patch("spiceypy.context.chdir")
-def test_spicekernel_allow_change_dir(chdir_mock):
-    """Check that the allow_change_dir argument of SpiceKernel works."""
+def test_kernelpool_allow_change_dir(chdir_mock):
+    """Check that the allow_change_dir argument of KernelPool works."""
     assert_loaded_kernels(0)
-    with SpiceKernel(CoreKernels.spk, allow_change_dir=False):
+    with KernelPool(CoreKernels.spk, allow_change_dir=False):
         assert_loaded_kernels(1)
     chdir_mock.assert_not_called()
